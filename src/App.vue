@@ -30,7 +30,8 @@
 <script>
 import io from 'socket.io-client'
 
-const socket = io.connect('http://localhost:8080')
+// const socket = io.connect('http://localhost:8080')
+const socket = io.connect('https://online-class-server.herokuapp.com/')
 
 const PeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection
 
