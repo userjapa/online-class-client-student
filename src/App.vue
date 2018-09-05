@@ -3,7 +3,6 @@
     <img src="./assets/logo.png">
     <h1>Minds Online Class</h1>
     <h2>Student</h2>
-    <button type="button" name="cacel" @click="cancel()">Cancel</button>
     <div class="chat">
       <div class="chat__box">
         <div class="chat__box__video">
@@ -19,7 +18,8 @@
             <span>{{ teacher.name }}</span>
           </div>
           <div class="chat__users__teacher__call">
-            <button type="button" name="call" @click="call(teacher)" :disabled="teacher.busy">Call</button>
+            <button type="button" name="call" @click="call(teacher)" :disabled="teacher.busy || busy" v-if="!busy">Call</button>
+            <button type="button" name="cancel" @click="emitCancel(teacher.id)" v-else>Cancel</button>
           </div>
         </div>
       </div>
@@ -41,20 +41,99 @@ export default {
   data () {
     return {
       teachers: [],
-      offer: null,
-      answers: {},
+      called: false,
+      received: false,
+      busy: false,
       pc: null,
       stream: null
     }
   },
   methods: {
-    async call (teacher) {
+    call (teacher) {
+      this.busy = true
+      socket.emit('make_call', teacher.id)
+    },
+    emitCancel (id) {
+      socket.emit('hangup', id)
+      this.cancel()
+    },
+    cancel () {
+      const tracks = this.stream.getTracks()
+      for (const track of tracks) {
+        track.stop()
+      }
+      this.$refs['guest'].srcObject = null
+      this.$refs['you'].srcObject = null
+      this.busy = false
+      this.received = false
+      this.called = false
+    },
+    async makeOffer (id) {
       try {
-        this.pc = new PeerConnection({ iceServers: [{ url: 'stun:stun.services.mozilla.com' }]})
-        this.pc.onaddstream = function (track) {
-          this.$refs['guest'].srcObject = track.stream
-          this.$refs['guest'].play()
+        if (!this.called) {
+          const offer = await this.pc.createOffer()
+          this.offer = offer
+          await this.pc.setLocalDescription(new SessionDescription(offer))
+          socket.emit('make_offer', {
+            offer: offer,
+            to: id
+          })
+          this.called = true
         }
+      } catch (error) {
+        alert('Failed to Make Offer!')
+        console.warn(error)
+      }
+    }
+  },
+  mounted () {
+    // Setting Peer Connection
+    this.pc = new PeerConnection({ iceServers: [{ url: 'stun:stun.services.mozilla.com' }]})
+    this.pc.onaddstream = (track) => {
+      console.log('Student added stream PC')
+      this.$refs['guest'].srcObject = track.stream
+    }
+    // this.pc.onremovestream = (track) => {
+    //   console.log('Student removed stream PC')
+    //   this.$refs['guest'].srcObject = null
+    //   // this.pc.close()
+    // }
+    // Socket Events
+    socket.on('connect', () => {
+      console.log(`Student connected!`)
+      socket.emit('connect_user', { user: 'student', name: 'Student Test' })
+    })
+    socket.on('teachers_update', teachers => {
+      this.teachers = teachers
+    })
+    socket.on('offer_made', async data => {
+      try {
+        await this.pc.setRemoteDescription(new SessionDescription(data.offer))
+        const answer = await this.pc.createAnswer()
+        await this.pc.setLocalDescription(new SessionDescription(answer))
+        socket.emit('make_answer', {
+          answer: answer,
+          to: data.socket
+        })
+      } catch (error) {
+        alert('Failed to Make Answer!')
+        console.warn(error)
+      }
+    })
+    socket.on('answer_made', async data => {
+      try {
+        await this.pc.setRemoteDescription(new SessionDescription(data.answer))
+        if (!this.received) {
+          this.makeOffer(data.socket)
+          this.received = true
+        }
+      } catch (error) {
+        alert('Failed to accept Answer!')
+        console.warn(error)
+      }
+    })
+    socket.on('call_answered', async id => {
+      try {
         const media = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true
@@ -62,27 +141,18 @@ export default {
         this.stream = media
         this.$refs['you'].srcObject = media
         this.pc.addStream(media)
+        await this.makeOffer(id)
       } catch (error) {
-        alert(`Failed to Call ${teacher.name}!`)
+        alert(`Failed to Call Teacher!`)
         console.warn(error)
       }
-    },
-    cancel () {
-      for (const track of this.stream.getTracks()) {
-        track.stop()
-      }
-      this.$refs['you'].src = ''
-      console.log(this.pc)
-    }
-  },
-  mounted () {
-    // Socket Events
-    socket.on('connect', () => {
-      console.log(`You're connected!`)
-      socket.emit('connect_user', { user: 'student', name: 'Student Test' })
     })
-    socket.on('teachers_update', teachers => {
-      this.teachers = teachers
+    socket.on('call_rejected', () => {
+      this.busy = false
+      alert('Rejected!')
+    })
+    socket.on('end_call', () => {
+      this.cancel()
     })
   }
 }
