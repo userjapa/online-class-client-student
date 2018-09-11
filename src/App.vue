@@ -18,8 +18,8 @@
             <span>{{ teacher.name }}</span>
           </div>
           <div class="chat__users__teacher__call">
-            <button type="button" name="call" @click="call(teacher)" :disabled="teacher.busy || busy" v-if="!teacher.busy && teacher.id !== calling">Call</button>
-            <button type="button" name="cancel" @click="emitCancel(teacher.id)" v-else>Cancel</button>
+            <button type="button" name="cancel" @click="emitCancel(teacher.id)" v-if="(busy && teacher.busy) && (teacher.id === calling)">Cancel</button>
+            <button type="button" name="call" @click="call(teacher)" :disabled="teacher.busy || busy" v-else>Call</button>
           </div>
         </div>
       </div>
