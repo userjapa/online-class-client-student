@@ -30,8 +30,8 @@
 <script>
 import io from 'socket.io-client'
 
-// const socket = io.connect('http://localhost:8080')
-const socket = io.connect('https://online-class-server.herokuapp.com/')
+const socket = io.connect('http://localhost:8080')
+// const socket = io.connect('https://online-class-server.herokuapp.com/')
 
 const PeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection
 
@@ -85,20 +85,16 @@ export default {
         alert('Failed to Make Offer!')
         console.warn(error)
       }
+    },
+    setPeerConnection () {
+      this.pc = new PeerConnection({ iceServers: [{ url: 'stun:stun.services.mozilla.com' }]})
+      this.pc.onaddstream = (track) => {
+        console.log('Student added stream PC')
+        this.$refs['guest'].srcObject = track.stream
+      }
     }
   },
   mounted () {
-    // Setting Peer Connection
-    this.pc = new PeerConnection({ iceServers: [{ url: 'stun:stun.services.mozilla.com' }]})
-    this.pc.onaddstream = (track) => {
-      console.log('Student added stream PC')
-      this.$refs['guest'].srcObject = track.stream
-    }
-    // this.pc.onremovestream = (track) => {
-    //   console.log('Student removed stream PC')
-    //   this.$refs['guest'].srcObject = null
-    //   // this.pc.close()
-    // }
     // Socket Events
     socket.on('connect', () => {
       console.log(`Student connected!`)
@@ -135,6 +131,7 @@ export default {
     })
     socket.on('call_answered', async id => {
       try {
+        this.setPeerConnection()
         const media = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true
