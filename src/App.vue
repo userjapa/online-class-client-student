@@ -18,7 +18,7 @@
             <span>{{ teacher.name }}</span>
           </div>
           <div class="chat__users__teacher__call">
-            <button type="button" name="call" @click="call(teacher)" :disabled="teacher.busy || busy" v-if="!busy">Call</button>
+            <button type="button" name="call" @click="call(teacher)" :disabled="teacher.busy || busy" v-if="!teacher.busy && teacher.id !== calling">Call</button>
             <button type="button" name="cancel" @click="emitCancel(teacher.id)" v-else>Cancel</button>
           </div>
         </div>
@@ -46,7 +46,8 @@ export default {
       received: false,
       busy: false,
       pc: null,
-      stream: null
+      stream: null,
+      calling: ''
     }
   },
   methods: {
@@ -68,6 +69,7 @@ export default {
       this.busy = false
       this.received = false
       this.called = false
+      this.calling = ''
     },
     async makeOffer (id) {
       try {
@@ -132,6 +134,7 @@ export default {
     socket.on('call_answered', async id => {
       try {
         this.setPeerConnection()
+        this.calling = id
         const media = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true
