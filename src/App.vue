@@ -30,8 +30,8 @@
 <script>
 import io from 'socket.io-client'
 
-// const socket = io.connect('http://localhost:8080')
-const socket = io.connect('https://online-class-server.herokuapp.com/')
+const socket = io.connect('http://localhost:8080')
+// const socket = io.connect('https://online-class-server.herokuapp.com/')
 
 const PeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection
 
@@ -54,10 +54,15 @@ export default {
     call (teacher) {
       this.busy = true
       socket.emit('make_call', teacher.id)
+      this.calling = teacher.id
     },
     emitCancel (id) {
-      socket.emit('hangup', id)
-      this.cancel()
+      if (this.called && this.received) {
+        socket.emit('hangup', id)
+        this.cancel()
+      } else {
+        socket.emit('cancel_call', id)
+      }
     },
     cancel () {
       const tracks = this.stream.getTracks()
@@ -134,7 +139,6 @@ export default {
     socket.on('call_answered', async id => {
       try {
         this.setPeerConnection()
-        this.calling = id
         const media = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true
