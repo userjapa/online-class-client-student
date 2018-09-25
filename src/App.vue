@@ -30,8 +30,8 @@
 <script>
 import io from 'socket.io-client'
 
-const socket = io.connect('http://localhost:8080')
-// const socket = io.connect('https://online-class-server.herokuapp.com/')
+// const socket = io.connect('http://localhost:8000')
+const socket = io.connect('https://online-class-server.herokuapp.com/')
 
 const PeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection
 
@@ -52,11 +52,13 @@ export default {
   },
   methods: {
     call (teacher) {
+      console.log('Calling')
       this.busy = true
       socket.emit('make_call', teacher.id)
       this.calling = teacher.id
     },
     emitCancel (id) {
+      console.log('Canceling')
       if (this.called && this.received) {
         socket.emit('hangup', id)
         this.cancel()
@@ -78,6 +80,7 @@ export default {
     },
     async makeOffer (id) {
       try {
+        console.log('Making Offer')
         if (!this.called) {
           const offer = await this.pc.createOffer()
           this.offer = offer
@@ -112,9 +115,11 @@ export default {
     })
     socket.on('offer_made', async data => {
       try {
+        console.log('Offer Made')
         await this.pc.setRemoteDescription(new SessionDescription(data.offer))
         const answer = await this.pc.createAnswer()
         await this.pc.setLocalDescription(new SessionDescription(answer))
+        console.log('Making Answer');
         socket.emit('make_answer', {
           answer: answer,
           to: data.socket
@@ -126,6 +131,7 @@ export default {
     })
     socket.on('answer_made', async data => {
       try {
+        console.log('Answer Made')
         await this.pc.setRemoteDescription(new SessionDescription(data.answer))
         if (!this.received) {
           this.makeOffer(data.socket)
@@ -138,6 +144,7 @@ export default {
     })
     socket.on('call_answered', async id => {
       try {
+        console.log('Call Answered')
         this.setPeerConnection()
         const media = await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -153,10 +160,12 @@ export default {
       }
     })
     socket.on('call_rejected', () => {
+      console.log('Call Rejected')
       this.busy = false
       alert('Rejected!')
     })
     socket.on('end_call', () => {
+      console.log('Call ended')
       this.cancel()
     })
   }
